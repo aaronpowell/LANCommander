@@ -435,17 +435,6 @@ Base type for view models supplied by plugins. Lives in this project (rather tha
 
 ## `LANCommander.Server.Plugins`
 
-### IGamePackageImporter
-
-`interface` — `LANCommander.Server.Plugins.IGamePackageImporter`
-
-Imports an LCX game package through the server's canonical import pipeline.
-
-**Methods**
-
-- `Task<ImportResponse> ImportAsync(Stream package, GamePackageImportOptions options, IProgress<GamePackageImportProgress> progress, CancellationToken cancellationToken)`
-  - Imports a package stream and returns the created or updated game. Cancellation is cooperative; the record currently being written is completed before cancellation is observed, and completed records are not rolled back.
-
 ### IServerNavigationExtension
 
 `interface` — `LANCommander.Server.Plugins.IServerNavigationExtension`
@@ -478,31 +467,6 @@ Contributes an assembly containing routable Razor components to the server. Regi
 - `Assembly Assembly { get; }`
   - The assembly containing the plugin's routable components.
 
-### GamePackageImportOptions
-
-`class` — `LANCommander.Server.Plugins.GamePackageImportOptions`
-
-Controls how an LCX game package is imported.
-
-**Properties**
-
-- `Guid? StorageLocationId { get; init; }`
-  - Archive storage location to use, or null for the server default.
-- `long MaxPackageBytes { get; init; }`
-  - Maximum accepted package size in bytes.
-
-### GamePackageImportProgress
-
-`record` — `LANCommander.Server.Plugins.GamePackageImportProgress`
-
-Progress reported by `IGamePackageImporter`.
-
-**Properties**
-
-- `GamePackageImportStage Stage { get; init; }`
-- `long BytesTransferred { get; init; }`
-- `int ImportedCount { get; init; }`
-
 ### PluginAccessAttribute
 
 `attribute` — `LANCommander.Server.Plugins.PluginAccessAttribute`
@@ -533,19 +497,6 @@ Describes who may reach a plugin-contributed surface, such as a page or a naviga
   - Allows members of any of the supplied server-defined roles. Administrators also qualify.
 - `bool IsSatisfiedBy(ClaimsPrincipal user)`
   - Determines whether `user` satisfies this policy.
-
-### GamePackageImportStage
-
-`enum` — `LANCommander.Server.Plugins.GamePackageImportStage`
-
-High-level stages reported while importing a game package.
-
-| Value | Description |
-| --- | --- |
-| `Copying` = `0` |  |
-| `Reading` = `1` |  |
-| `Importing` = `2` |  |
-| `Complete` = `3` |  |
 
 ### PluginAccessLevel
 

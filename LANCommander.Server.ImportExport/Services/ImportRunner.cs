@@ -22,6 +22,11 @@ public class ImportRunner(
     StorageLocationService storageLocationService,
     ILogger<ImportRunner> logger)
 {
+    private const int BufferSize = 1024 * 1024;
+
+    /// <summary>Default maximum size accepted by <see cref="RunStreamAsync"/>.</summary>
+    public const long DefaultMaxPackageBytes = 100L * 1024 * 1024 * 1024;
+
     /// <summary>
     /// Imports every record found in the uploaded archive identified by <paramref name="objectKey"/>.
     /// </summary>
@@ -101,6 +106,97 @@ public class ImportRunner(
             ManifestType = GetManifestType(context.Manifest),
             ImportedCount = context.Processed,
         };
+    }
+
+    /// <summary>
+    /// Copies an LCX package stream to controlled temporary storage and runs the canonical import
+    /// pipeline against it.
+    /// </summary>
+    /// <param name="package">Readable LCX package stream.</param>
+    /// <param name="storageLocationId">
+    /// Archive storage location to write blobs into. Falls back to the default archive location.
+    /// </param>
+    /// <param name="manifestType">
+    /// Expected manifest type. When null the type is sniffed from the manifest.
+    /// </param>
+    /// <param name="maxPackageBytes">Maximum number of bytes accepted from the stream.</param>
+    /// <param name="copyProgress">Receives the number of bytes copied to temporary storage.</param>
+    public async Task<ImportRunResult> RunStreamAsync(
+        Stream package,
+        Guid? storageLocationId = null,
+        ManifestType? manifestType = null,
+        long maxPackageBytes = DefaultMaxPackageBytes,
+        IProgress<long>? copyProgress = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(package);
+
+        if (!package.CanRead)
+            throw new ArgumentException("The package stream must be readable.", nameof(package));
+
+        if (maxPackageBytes <= 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(maxPackageBytes),
+                "The maximum package size must be positive.");
+
+        var packagePath = Path.Combine(
+            Path.GetTempPath(),
+            $"lancommander-import-{Guid.NewGuid():N}.lcx");
+        long bytesTransferred = 0;
+
+        try
+        {
+            await using (var output = new FileStream(
+                packagePath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                BufferSize,
+                FileOptions.Asynchronous | FileOptions.SequentialScan))
+            {
+                var buffer = new byte[BufferSize];
+
+                while (true)
+                {
+                    var read = await package.ReadAsync(buffer, cancellationToken);
+
+                    if (read == 0)
+                        break;
+
+                    bytesTransferred += read;
+
+                    if (bytesTransferred > maxPackageBytes)
+                        throw new InvalidDataException(
+                            $"The package exceeds the maximum size of {maxPackageBytes} bytes.");
+
+                    await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+                    copyProgress?.Report(bytesTransferred);
+                }
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            return await RunFileAsync(
+                packagePath,
+                storageLocationId,
+                manifestType,
+                cancellationToken);
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(packagePath))
+                    File.Delete(packagePath);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(
+                    ex,
+                    "Could not delete temporary import package {PackagePath}",
+                    packagePath);
+            }
+        }
     }
 
     // Root importers preserve the manifest Id for new records and replace it with the matched

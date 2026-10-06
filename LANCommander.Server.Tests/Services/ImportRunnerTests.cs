@@ -5,7 +5,7 @@ using LANCommander.SDK.Helpers;
 using LANCommander.Server.Data.Models;
 using LANCommander.Server.ImportExport;
 using LANCommander.Server.ImportExport.Factories;
-using LANCommander.Server.Plugins;
+using LANCommander.Server.ImportExport.Services;
 using LANCommander.Server.Services;
 using Shouldly;
 
@@ -68,11 +68,11 @@ public class ImportRunnerTests(ApplicationFixture fixture) : BaseTest(fixture)
     }
 
     [Fact]
-    public async Task PluginPackageImporterImportsAStream()
+    public async Task ImportRunnerImportsAStream()
     {
         await EnsureStorageLocationsExistAsync();
 
-        var packageImporter = GetService<IGamePackageImporter>();
+        var importRunner = GetService<ImportRunner>();
         var gameId = Guid.NewGuid();
         await using var package = new MemoryStream();
 
@@ -93,7 +93,9 @@ public class ImportRunnerTests(ApplicationFixture fixture) : BaseTest(fixture)
 
         package.Position = 0;
 
-        var result = await packageImporter.ImportAsync(package);
+        var result = await importRunner.RunStreamAsync(
+            package,
+            manifestType: ManifestType.Game);
 
         result.ManifestType.ShouldBe(ManifestType.Game);
         result.RecordId.ShouldBe(gameId);
@@ -101,12 +103,12 @@ public class ImportRunnerTests(ApplicationFixture fixture) : BaseTest(fixture)
     }
 
     [Fact]
-    public async Task PluginPackageImporterReturnsExistingGameIdWhenMatchedByTitle()
+    public async Task ImportRunnerReturnsExistingGameIdWhenMatchedByTitle()
     {
         await EnsureStorageLocationsExistAsync();
 
         var gameService = GetService<GameService>();
-        var packageImporter = GetService<IGamePackageImporter>();
+        var importRunner = GetService<ImportRunner>();
         var title = $"Plugin Package Existing Game {Guid.NewGuid()}";
         var existing = await gameService.AddAsync(new Game
         {
@@ -132,35 +134,34 @@ public class ImportRunnerTests(ApplicationFixture fixture) : BaseTest(fixture)
 
         package.Position = 0;
 
-        var result = await packageImporter.ImportAsync(package);
+        var result = await importRunner.RunStreamAsync(
+            package,
+            manifestType: ManifestType.Game);
 
         result.RecordId.ShouldBe(existing.Id);
         result.ImportedCount.ShouldBeGreaterThan(0);
     }
 
     [Fact]
-    public async Task PluginPackageImporterRejectsOversizedStreams()
+    public async Task ImportRunnerRejectsOversizedStreams()
     {
-        var packageImporter = GetService<IGamePackageImporter>();
+        var importRunner = GetService<ImportRunner>();
         await using var package = new MemoryStream(new byte[16]);
 
         await Should.ThrowAsync<InvalidDataException>(() =>
-            packageImporter.ImportAsync(package, new GamePackageImportOptions
-            {
-                MaxPackageBytes = 8,
-            }));
+            importRunner.RunStreamAsync(package, maxPackageBytes: 8));
     }
 
     [Fact]
-    public async Task PluginPackageImporterHonorsCancellation()
+    public async Task ImportRunnerHonorsStreamCancellation()
     {
-        var packageImporter = GetService<IGamePackageImporter>();
+        var importRunner = GetService<ImportRunner>();
         await using var package = new MemoryStream(new byte[16]);
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
         await Should.ThrowAsync<OperationCanceledException>(() =>
-            packageImporter.ImportAsync(
+            importRunner.RunStreamAsync(
                 package,
                 cancellationToken: cancellation.Token));
     }
