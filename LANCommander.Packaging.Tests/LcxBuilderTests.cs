@@ -153,7 +153,7 @@ public class LcxBuilderTests : IDisposable
     }
 
     [Fact]
-    public async Task StreamingWriterPreservesCallerAssignedIdsAndProvenance()
+    public async Task PrebuiltArchiveOverloadPreservesCallerAssignedIdsAndProvenance()
     {
         var gameId = Guid.NewGuid();
         var archiveId = Guid.NewGuid();
@@ -167,20 +167,16 @@ public class LcxBuilderTests : IDisposable
 
         await using var innerArchive = await BuildInnerArchiveAsync(("game.exe", "binary"));
 
-        await LCXPackageWriter.WriteAsync(
+        await LCXBuilder.BuildAsync(
             outputPath,
             manifest,
-            [
-                new LCXArchiveContent(
-                    new SDK.Models.Manifest.Archive
-                    {
-                        Id = archiveId,
-                        Version = "2.0",
-                        UncompressedSize = 6,
-                    },
-                    innerArchive),
-            ],
-            scripts: null,
+            new SDK.Models.Manifest.Archive
+            {
+                Id = archiveId,
+                Version = "2.0",
+                UncompressedSize = 6,
+            },
+            innerArchive,
             createdBy: "Recomp Catalog Tests");
 
         var written = await ReadManifestAsync(outputPath);
@@ -194,40 +190,32 @@ public class LcxBuilderTests : IDisposable
     }
 
     [Fact]
-    public async Task StreamingWriterRejectsUnassignedArchiveIds()
+    public async Task PrebuiltArchiveOverloadRejectsUnassignedArchiveIds()
     {
         await using var innerArchive = await BuildInnerArchiveAsync(("game.exe", "binary"));
 
         await Should.ThrowAsync<InvalidOperationException>(() =>
-            LCXPackageWriter.WriteAsync(
+            LCXBuilder.BuildAsync(
                 new MemoryStream(),
                 new SDK.Models.Manifest.Game { Title = "Example" },
-                [
-                    new LCXArchiveContent(
-                        new SDK.Models.Manifest.Archive { Version = "1.0" },
-                        innerArchive),
-                ],
-                scripts: null,
+                new SDK.Models.Manifest.Archive { Version = "1.0" },
+                innerArchive,
                 createdBy: "Tests"));
     }
 
     [Fact]
-    public async Task StreamingWriterDoesNotReplaceExistingFileWhenValidationFails()
+    public async Task PrebuiltArchiveOverloadDoesNotReplaceExistingFileWhenValidationFails()
     {
         var outputPath = Path.Combine(_workingDirectory, "existing.lcx");
         await File.WriteAllTextAsync(outputPath, "existing package");
         await using var innerArchive = await BuildInnerArchiveAsync(("game.exe", "binary"));
 
         await Should.ThrowAsync<InvalidOperationException>(() =>
-            LCXPackageWriter.WriteAsync(
+            LCXBuilder.BuildAsync(
                 outputPath,
                 new SDK.Models.Manifest.Game { Title = "Example" },
-                [
-                    new LCXArchiveContent(
-                        new SDK.Models.Manifest.Archive { Version = "1.0" },
-                        innerArchive),
-                ],
-                scripts: null,
+                new SDK.Models.Manifest.Archive { Version = "1.0" },
+                innerArchive,
                 createdBy: "Tests"));
 
         (await File.ReadAllTextAsync(outputPath)).ShouldBe("existing package");
