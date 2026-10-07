@@ -161,7 +161,7 @@ public static class LCXBuilder
     /// The server's export pipeline is for records that have already been persisted; this overload
     /// supports creating a package before importing it.
     /// </remarks>
-    public static async Task BuildAsync(
+    public static async Task BuildFromArchiveAsync(
         string outputPath,
         Game manifest,
         ManifestArchive archiveManifest,
@@ -191,7 +191,7 @@ public static class LCXBuilder
                 1024 * 1024,
                 FileOptions.Asynchronous | FileOptions.SequentialScan))
             {
-                await BuildAsync(
+                await BuildFromArchiveAsync(
                     output,
                     manifest,
                     archiveManifest,
@@ -213,7 +213,7 @@ public static class LCXBuilder
     /// <summary>
     /// Writes an LCX from an already-normalized game archive to a caller-owned stream.
     /// </summary>
-    public static async Task BuildAsync(
+    public static async Task BuildFromArchiveAsync(
         Stream output,
         Game manifest,
         ManifestArchive archiveManifest,
@@ -241,9 +241,6 @@ public static class LCXBuilder
         manifest.UpdatedOn = now;
         manifest.Archives ??= [];
         manifest.Scripts ??= [];
-
-        manifest.Archives.Clear();
-        manifest.Scripts.Clear();
 
         archiveManifest.ObjectKey = archiveManifest.Id.ToString();
         archiveManifest.CreatedBy = string.IsNullOrWhiteSpace(archiveManifest.CreatedBy)
@@ -304,6 +301,26 @@ public static class LCXBuilder
             throw new ArgumentException(
                 "The archive content stream must be readable.",
                 nameof(archiveContent));
+
+        if (manifest.Archives?.Count > 0)
+            throw new ArgumentException(
+                "The manifest must not contain archives; pass the archive separately.",
+                nameof(manifest));
+
+        if (manifest.Scripts?.Count > 0)
+            throw new ArgumentException(
+                "The prebuilt archive overload does not write script content.",
+                nameof(manifest));
+
+        if (manifest.Media?.Count > 0)
+            throw new ArgumentException(
+                "The prebuilt archive overload does not write media content.",
+                nameof(manifest));
+
+        if (manifest.Saves?.Count > 0)
+            throw new ArgumentException(
+                "The prebuilt archive overload does not write save content.",
+                nameof(manifest));
     }
 
     private static async Task<long> CopyAndCountAsync(

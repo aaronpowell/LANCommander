@@ -26,6 +26,21 @@ public class ServerPluginExtensionTests
     }
 
     [Fact]
+    public void PluginRouteResolverExcludesTheServerAssembly()
+    {
+        var pluginAssembly = typeof(ServerPluginExtensionTests).Assembly;
+        var pluginRoutes = new IServerRouteAssemblyExtension[]
+        {
+            new TestRouteAssemblyExtension(typeof(Program).Assembly),
+            new TestRouteAssemblyExtension(pluginAssembly),
+        };
+
+        var routes = UIRouteAssembly.ResolvePluginAssemblies(pluginRoutes);
+
+        Assert.Equal([pluginAssembly], routes);
+    }
+
+    [Fact]
     public void NavigationDefaultsToAdministratorsOnly()
     {
         IServerNavigationExtension extension = new TestNavigationExtension();

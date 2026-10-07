@@ -107,7 +107,7 @@ Runtime context handed to a plugin during `InitializeAsync`.
 - `PluginHost Host { get; init; }`
   - The host the plugin is running inside (a single value, never a flags combination).
 - `IServiceProvider Services { get; init; }`
-  - The fully built host service provider (scoped per plugin during initialization).
+  - The host service provider scoped to the current `InitializeAsync` call. Resolve services needed during initialization, but do not retain this provider or scoped services after initialization completes.
 - `string PluginDirectory { get; init; }`
   - Absolute path to the folder the plugin was loaded from.
 - `ILogger Logger { get; init; }`

@@ -34,9 +34,6 @@
     protected override void OnInitialized()
     {
         _additionalAssemblies = UIRouteAssembly.Resolve(RouteAssemblies, PluginRouteAssemblies);
-        _pluginAssemblies = PluginRouteAssemblies
-            .Select(extension => extension.Assembly)
-            .Distinct()
-            .ToArray();
+        _pluginAssemblies = UIRouteAssembly.ResolvePluginAssemblies(PluginRouteAssemblies);
     }
 }

@@ -113,10 +113,7 @@
             _user = authState.User;
 
         _pluginNavigation = ResolvePluginNavigation();
-        _pluginAssemblies = PluginRouteAssemblies
-            .Select(extension => extension.Assembly)
-            .Distinct()
-            .ToArray();
+        _pluginAssemblies = UIRouteAssembly.ResolvePluginAssemblies(PluginRouteAssemblies);
 
         NavigationManager.LocationChanged += RefreshOnNavigation;
 

@@ -184,14 +184,14 @@ than rendered ambiguously.
 
 The SDK `GameClient.ImportAsync` method is intended for remote clients: it uploads a package over
 HTTP and then calls the server import endpoint. A plugin already running inside the server should
-instead resolve `ImportRunner` from `LANCommander.Server.ImportExport.Services` and invoke the import
-pipeline directly:
+instead inject `ImportRunner` from `LANCommander.Server.ImportExport.Services` into the plugin page
+or another scoped plugin service and invoke the import pipeline directly:
 
 ```csharp
-var importRunner = services.GetRequiredService<ImportRunner>();
+@inject ImportRunner ImportRunner
 
 await using var package = File.OpenRead(packagePath);
-var result = await importRunner.RunStreamAsync(
+var result = await ImportRunner.RunStreamAsync(
     package,
     storageLocationId,
     ManifestType.Game,
@@ -202,7 +202,8 @@ var result = await importRunner.RunStreamAsync(
 `RunStreamAsync` copies the stream to controlled temporary storage, enforces a maximum size, and then
 runs the same initialize, queue, and commit pipeline as the server API. `RunFileAsync` is also
 available when the LCX already exists on the server. Plugins should use `ImportRunner` instead of
-resolving database services or `ImportContext` directly.
+resolving database services or `ImportContext` directly. `PluginContext.Services` is scoped to
+`InitializeAsync` and must not be retained for later imports.
 
 ## PowerShell extensions
 
